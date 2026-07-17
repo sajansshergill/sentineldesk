@@ -1,0 +1,1 @@
+"""Synthetic data generator for SentinelDesk. All output is fictional."""
