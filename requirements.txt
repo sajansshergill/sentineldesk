@@ -9,3 +9,4 @@ numpy
 scikit-learn
 joblib
 requests
+streamlit

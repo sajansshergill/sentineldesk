@@ -219,6 +219,16 @@ Run local evals with:
 make eval
 ```
 
+Optional Streamlit client:
+
+```bash
+make streamlit
+```
+
+The Streamlit app runs from `streamlit_app.py` and expects a reachable API via
+`SENTINEL_API_URL` (default `http://localhost:8000`). For Streamlit Cloud, deploy
+`streamlit_app.py` and set `SENTINEL_API_URL` to the hosted FastAPI URL.
+
 **Without cloud credentials:** the default `MODE=local` path runs with a deterministic local LLM fixture and an in-memory CRM sink. Anomaly detection, orchestration, evals, and the console all work against synthetic data. Extraction and summarization return fixture-backed JSON.
 
 **Copilot Studio + Dynamics** require a Microsoft dev tenant and a Dynamics 365 trial. `docs/enterprise-setup.md` walks through connector registration, auth, and the Dataverse table schema. This path is documented but not reproducible without your own tenant.

@@ -3,7 +3,7 @@ PIP ?= .venv/bin/pip
 DATA_DIR ?= ./var
 DATA_N ?= 2500
 
-.PHONY: install data train api console eval smoke
+.PHONY: install data train api console streamlit eval smoke
 
 install:
 	python3 -m venv .venv
@@ -17,10 +17,13 @@ train: data
 	$(PYTHON) -m services.anomaly.train --data $(DATA_DIR) --out $(DATA_DIR)/model/iforest.joblib
 
 api:
-	MODE=local SENTINEL_DATA_DIR=$(DATA_DIR) uvicorn apps.api.main:app --reload --host 0.0.0.0 --port 8000
+	MODE=local SENTINEL_DATA_DIR=$(DATA_DIR) .venv/bin/uvicorn apps.api.main:app --reload --host 0.0.0.0 --port 8000
 
 console:
 	cd apps/console && NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+
+streamlit:
+	SENTINEL_API_URL=http://localhost:8000 .venv/bin/streamlit run streamlit_app.py
 
 eval:
 	$(PYTHON) -m evals.run_all --data $(DATA_DIR)
