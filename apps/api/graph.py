@@ -31,11 +31,20 @@ from .state import RunState
 
 HALT = "halt"
 
+
 def _should_continue(state: RunState) -> str:
     """Route to halt if a stage flagged it. Checked after every node."""
     if state.get("halted_reason") or state.get("error"):
         return HALT
     return "continue"
+
+
+def _after_approval(state: RunState) -> str:
+    """Commit only after a concrete human decision has been recorded."""
+    if state.get("decision") in {"approved", "approved_with_edits", "rejected"}:
+        return "commit"
+    return HALT
+
 
 def build_graph(*, llm, ledger, scorer, crm, checkpointer=None):
     """Wire the graph. Dependencies injected so evals can swap in fakes."""
@@ -62,15 +71,17 @@ def build_graph(*, llm, ledger, scorer, crm, checkpointer=None):
         g.add_conditional_edges(src, _should_continue,
                                 {"continue": dst, HALT: HALT})
         
-    # summarize -> approval is unconditional: even a failed brief goes to a 
+    # summarize -> approval is unconditional: even a failed brief goes to a
     # human. The one path we never take is summarize -> commit.
+    g.add_edge("summarize", "approval")
+    g.add_conditional_edges("approval", _after_approval, {"commit": "commit", HALT: HALT})
     g.add_edge("commit", END)
     g.add_edge(HALT, END)
     
     return g.compile(checkpointer=checkpointer or MemorySaver())
 
 def _approval_node(state: RunState) -> dict:
-    f"""The gate.
+    """The gate.
     
     `interrupt()` suspends the graph and surfaces the payload to the console.
     Execution resumes only when the API layer sends Command(resume={...}).
@@ -123,6 +134,7 @@ def start_run(graph, email: dict, run_id: str | None = None) -> tuple[str, dict]
     cfg = {"configurable": {"thread_id": rid}}
     state = graph.invoke({"run_id": rid, "email": email,
                           "evidence_ids": [], "stages": []}, cfg)
+    return rid, state
     
 def resume_run(graph, run_id: str, decision: dict) -> dict:
     """Resume a suspended run with a human decision."""

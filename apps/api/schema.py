@@ -132,4 +132,15 @@ class RunSummary(BaseModel):
     final_score: float | None = None
     alerts: bool = False
     headline: str | None = None
-    decision: Decision = Decision.PENDINGˀ
+    decision: Decision = Decision.PENDING
+
+
+class RunCreateRequest(BaseModel):
+    email: InboundEmail
+    run_id: str | None = None
+
+
+class HealthResponse(BaseModel):
+    ok: bool = True
+    mode: str
+    ledger_count: int

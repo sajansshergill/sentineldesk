@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+langgraph
+pydantic
+duckdb
+pandas
+pyarrow
+numpy
+scikit-learn
+joblib
+requests

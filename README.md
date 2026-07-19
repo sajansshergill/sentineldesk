@@ -143,7 +143,7 @@ CI fails the build when any gate regresses beyond tolerance. Metrics land in `ev
 **Backend** — Python 3.11, FastAPI, LangGraph, Pydantic, DuckDB (ledger), Postgres (state + audit), Redis Streams
 **ML** — scikit-learn (Isolation Forest), pandas, custom rules engine
 **LLM** — AWS Bedrock (Anthropic Claude) for extraction and summarization
-**Frontend** — Next.js 14 (App Router), TypeScript, TanStack Query, Tailwind
+**Frontend** — Next.js 16 (App Router), TypeScript, TanStack Query, Tailwind
 **Enterprise integration** — Microsoft Copilot Studio agent, custom connector, Dataverse Web API (Dynamics 365)
 **CI/CD** — GitHub Actions, Docker, Azure Container Apps
 **AI-assisted development** — Claude Code and Continue.dev used throughout; see `docs/ai-assisted-development.md` for what was delegated, what was hand-written, and what the review process looked like
@@ -198,15 +198,28 @@ Audit records are immutable, queryable, and exportable. Model versions are pinne
 git clone https://github.com/sajansshergill/sentineldesk
 cd sentineldesk
 
-cp .env.example .env      # fill in AWS + Dataverse creds
-make up                   # docker compose: postgres, redis, api, console
-make data                 # generate synthetic ledger + message corpus
-make eval                 # run all four eval gates
+cp .env.example .env
+make install
+make data
+make train
+make api
+```
+
+In a second terminal:
+
+```bash
+make console
 ```
 
 Console at `http://localhost:3000`. API docs at `http://localhost:8000/docs`.
 
-**Without cloud credentials:** `make up MODE=local` runs the full pipeline with a stubbed Bedrock client and an in-memory CRM sink. Anomaly detection, orchestration, evals, and the console all work. Extraction and summarization return fixtures.
+Run local evals with:
+
+```bash
+make eval
+```
+
+**Without cloud credentials:** the default `MODE=local` path runs with a deterministic local LLM fixture and an in-memory CRM sink. Anomaly detection, orchestration, evals, and the console all work against synthetic data. Extraction and summarization return fixture-backed JSON.
 
 **Copilot Studio + Dynamics** require a Microsoft dev tenant and a Dynamics 365 trial. `docs/enterprise-setup.md` walks through connector registration, auth, and the Dataverse table schema. This path is documented but not reproducible without your own tenant.
 
