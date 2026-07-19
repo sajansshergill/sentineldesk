@@ -226,8 +226,9 @@ make streamlit
 ```
 
 The Streamlit app runs from `streamlit_app.py` and expects a reachable API via
-`SENTINEL_API_URL` (default `http://localhost:8000`). For Streamlit Cloud, deploy
-`streamlit_app.py` and set `SENTINEL_API_URL` to the hosted FastAPI URL.
+`SENTINEL_API_URL` when you want it to call a hosted FastAPI backend. If
+`SENTINEL_API_URL` is unset or unreachable, it runs in standalone mode inside
+Streamlit and uses the local SentinelDesk bootstrap directly.
 
 **Without cloud credentials:** the default `MODE=local` path runs with a deterministic local LLM fixture and an in-memory CRM sink. Anomaly detection, orchestration, evals, and the console all work against synthetic data. Extraction and summarization return fixture-backed JSON.
 

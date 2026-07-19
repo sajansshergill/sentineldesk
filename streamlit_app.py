@@ -1,11 +1,12 @@
 """Streamlit client for SentinelDesk.
 
-Run the FastAPI backend separately, then start this app:
+Run standalone:
 
-    SENTINEL_API_URL=http://localhost:8000 streamlit run streamlit_app.py
+    streamlit run streamlit_app.py
 
-On Streamlit Community Cloud, set `SENTINEL_API_URL` to the deployed API URL in
-app secrets or environment settings.
+Or point it at a deployed FastAPI backend:
+
+    SENTINEL_API_URL=https://your-api.example.com streamlit run streamlit_app.py
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import requests
 import streamlit as st
 
 
-API_URL = os.getenv("SENTINEL_API_URL", "http://localhost:8000").rstrip("/")
+API_URL = os.getenv("SENTINEL_API_URL", "").rstrip("/")
 
 
 st.set_page_config(page_title="SentinelDesk", page_icon="SD", layout="wide")
@@ -37,28 +38,71 @@ def api_post(path: str, payload: dict[str, Any]) -> Any:
     return response.json()
 
 
+@st.cache_resource
+def local_state():
+    from apps.api.bootstrap import create_app_state
+
+    return create_app_state()
+
+
+def connect() -> tuple[str, dict[str, Any]]:
+    if API_URL:
+        try:
+            return "api", api_get("/health")
+        except requests.RequestException:
+            pass
+
+    state = local_state()
+    return (
+        "standalone",
+        {
+            "ok": True,
+            "mode": "standalone",
+            "ledger_count": state.ledger.count(),
+        },
+    )
+
+
+def load_runs(mode: str) -> list[dict[str, Any]]:
+    if mode == "api":
+        return api_get("/runs")
+
+    from apps.api.mapper import graph_snapshot_to_run
+
+    state = local_state()
+    return [graph_snapshot_to_run(snapshot, crm=state.crm) for snapshot in state.snapshots()]
+
+
+def submit_decision(mode: str, run_id: str, payload: dict[str, Any]) -> None:
+    if mode == "api":
+        api_post(f"/runs/{run_id}/decision", payload)
+        return
+
+    from apps.api.bootstrap import decide_run
+
+    decide_run(local_state(), run_id, payload)
+
+
 def format_score(value: float | None) -> str:
     return "N/A" if value is None else f"{value:.0%}"
 
 
 with st.sidebar:
     st.header("Connection")
-    st.code(API_URL)
+    st.code(API_URL or "standalone Streamlit mode")
     if st.button("Refresh runs", width="stretch"):
         st.cache_data.clear()
 
 
-@st.cache_data(ttl=10)
-def load_runs() -> list[dict[str, Any]]:
-    return api_get("/runs")
-
-
 try:
-    health = api_get("/health")
-    st.success(f"API connected: {health['mode']} mode, {health['ledger_count']:,} ledger rows")
-    runs = load_runs()
+    connection_mode, health = connect()
+    st.success(
+        f"{connection_mode.title()} connected: {health['mode']} mode, "
+        f"{health['ledger_count']:,} ledger rows"
+    )
+    runs = load_runs(connection_mode)
 except Exception as exc:  # pragma: no cover - Streamlit display path
-    st.error(f"Could not connect to SentinelDesk API at {API_URL}: {exc}")
+    st.error(f"Could not start SentinelDesk Streamlit client: {exc}")
     st.stop()
 
 if not runs:
@@ -128,14 +172,14 @@ with tab_action:
     }
 
     if c1.button("Approve", width="stretch"):
-        api_post(f"/runs/{run['run_id']}/decision", {**payload_base, "decision": "approved"})
+        submit_decision(connection_mode, run["run_id"], {**payload_base, "decision": "approved"})
         st.cache_data.clear()
         st.rerun()
     if c2.button("Approve with edits", width="stretch"):
-        api_post(f"/runs/{run['run_id']}/decision", {**payload_base, "decision": "approved_with_edits"})
+        submit_decision(connection_mode, run["run_id"], {**payload_base, "decision": "approved_with_edits"})
         st.cache_data.clear()
         st.rerun()
     if c3.button("Reject", width="stretch"):
-        api_post(f"/runs/{run['run_id']}/decision", {**payload_base, "decision": "rejected"})
+        submit_decision(connection_mode, run["run_id"], {**payload_base, "decision": "rejected"})
         st.cache_data.clear()
         st.rerun()
